@@ -23,25 +23,23 @@ import {
 } from "@/components/ui/select"
 import {subjects} from "@/constants";
 import {Textarea} from "@/components/ui/textarea";
-// import {createCompanion} from "@/lib/actions/companion.actions";
-import {redirect} from "next/navigation";
 import {createCompanion} from "@/lib/actions/companion.actions";
+import {redirect} from "next/navigation";
 
 const formSchema = z.object({
-    name: z.string().min(1, { message: 'Companion is required.' }),
-    subject: z.string().min(1, { message: 'Subject is required.' }),
-    topic: z.string().min(1, { message: 'Topic is required.' }),
-    voice: z.string().min(1, { message: 'Voice is required.' }),
-    style: z.string().min(1, { message: 'Style is required.' }),
-    duration: z.coerce.number().min(1, { message: 'Duration is required.' }),
+    name: z.string().min(1, { message: 'Companion is required.'}),
+    subject: z.string().min(1, { message: 'Subject is required.'}),
+    topic: z.string().min(1, { message: 'Topic is required.'}),
+    voice: z.string().min(1, { message: 'Voice is required.'}),
+    style: z.string().min(1, { message: 'Style is required.'}),
+    duration: z.coerce.number().min(1, { message: 'Duration is required.'}),
 })
 
 const CompanionForm = () => {
-    // 1. Define your form.
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
         defaultValues: {
-            name : '',
+            name: '',
             subject: '',
             topic: '',
             voice: '',
@@ -54,7 +52,7 @@ const CompanionForm = () => {
         const companion = await createCompanion(values);
 
         if(companion) {
-            redirect('/companions/&{companion.id}');
+            redirect(`/companions/${companion.id}`);
         } else {
             console.log('Failed to create a companion');
             redirect('/');
@@ -77,9 +75,6 @@ const CompanionForm = () => {
                                     className="input"
                                 />
                             </FormControl>
-                            <FormDescription>
-                                This is your public display name.
-                            </FormDescription>
                             <FormMessage />
                         </FormItem>
                     )}
@@ -133,6 +128,7 @@ const CompanionForm = () => {
                         </FormItem>
                     )}
                 />
+
                 <FormField
                     control={form.control}
                     name="voice"
@@ -219,4 +215,5 @@ const CompanionForm = () => {
         </Form>
     )
 }
+
 export default CompanionForm
