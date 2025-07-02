@@ -2,15 +2,16 @@
 
 import {auth} from "@clerk/nextjs/server";
 import {createSupabaseClient} from "@/lib/supabase";
+import { revalidatePath } from "next/cache";
 
-export const createCompanion = async(formData: CreateCompanion) => {
+export const createCompanion = async (formData: CreateCompanion) => {
     const { userId: author } = await auth();
     const supabase = createSupabaseClient();
 
     const { data, error } = await supabase
         .from('companions')
-        .insert({ ...formData, author })
-        .select()
+        .insert({...formData, author })
+        .select();
 
     if(error || !data) throw new Error(error?.message || 'Failed to create a companion');
 
@@ -93,3 +94,108 @@ export const getUserSessions = async (userId: string, limit = 10) => {
 
     return data.map(({ companions }) => companions);
 }
+
+export const getUserCompanions = async (userId: string) => {
+    const supabase = createSupabaseClient();
+    const { data, error } = await supabase
+        .from('companions')
+        .select()
+        .eq('author', userId)
+
+    if(error) throw new Error(error.message);
+
+    return data;
+}
+
+export const newCompanionPermissions = async () => {
+    const { userId, has } = await auth();
+    const supabase = createSupabaseClient();
+
+    let limit = 0;
+
+    if(has({ plan: 'pro' })) {
+        return true;
+    } else if(has({ feature: "3_companion_limit" })) {
+        limit = 3;
+    } else if(has({ feature: "10_companion_limit" })) {
+        limit = 10;
+    }
+
+    const { data, error } = await supabase
+        .from('companions')
+        .select('id', { count: 'exact' })
+        .eq('author', userId)
+
+    if(error) throw new Error(error.message);
+
+    const companionCount = data?.length;
+
+    if(companionCount >= limit) {
+        return false
+    } else {
+        return true;
+    }
+}
+
+// Bookmarks
+export const addBookmark = async (companionId: string, path: string) => {
+    const { userId } = await auth();
+    if (!userId) return;
+    const supabase = createSupabaseClient();
+
+    // 🔍 Check if bookmark already exists
+    const { data: existing, error: existingError } = await supabase
+        .from("bookmarks")
+        .select("*")
+        .eq("companion_id", companionId)
+        .eq("user_id", userId)
+        .maybeSingle();
+
+    if (existingError) throw new Error(existingError.message);
+
+    if (existing) {
+        console.log("Already bookmarked");
+        return;
+    }
+
+    const { data, error } = await supabase.from("bookmarks").insert({
+        companion_id: companionId,
+        user_id: userId,
+    });
+
+    if (error) throw new Error(error.message);
+
+    revalidatePath(path);
+    return data;
+};
+
+
+export const removeBookmark = async (companionId: string, path: string) => {
+    const { userId } = await auth();
+    if (!userId) return;
+    const supabase = createSupabaseClient();
+    const { data, error } = await supabase
+        .from("bookmarks")
+        .delete()
+        .eq("companion_id", companionId)
+        .eq("user_id", userId);
+    if (error) {
+        throw new Error(error.message);
+    }
+    revalidatePath(path);
+    return data;
+};
+
+// It's almost the same as getUserCompanions, but it's for the bookmarked companions
+export const getBookmarkedCompanions = async (userId: string) => {
+    const supabase = createSupabaseClient();
+    const { data, error } = await supabase
+        .from("bookmarks")
+        .select(`companions:companion_id (*)`) // Notice the (*) to get all the companion data
+        .eq("user_id", userId);
+    if (error) {
+        throw new Error(error.message);
+    }
+    // We don't need the bookmarks data, so we return only the companions
+    return data.map(({ companions }) => companions);
+};
